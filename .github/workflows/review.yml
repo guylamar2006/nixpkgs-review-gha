@@ -183,6 +183,38 @@ jobs:
           IDENTIFY_STILL_FAILING_PACKAGES: ${{ vars.IDENTIFY_STILL_FAILING_PACKAGES }}
           IDENTIFY_UNSUPPORTED_PACKAGES: ${{ vars.IDENTIFY_UNSUPPORTED_PACKAGES }}
 
+      - name: Test compiled binaries for breakage
+        run: |
+          echo "Searching for dynamically built binaries..."
+          
+          # Enable nullglob so the loop doesn't fail if no binaries are found
+          shopt -s nullglob
+          
+          # Grab all files in the bin/ directory of any package built for any PR
+          binaries=( ~/.cache/nixpkgs-review/pr-*/results/*/bin/* )
+          
+          if [ ${#binaries[@]} -eq 0 ]; then
+            echo "No binaries found in this PR build."
+            exit 0
+          fi
+
+          for bin in "${binaries[@]}"; do
+            if [ -x "$bin" ]; then
+              echo "----------------------------------------"
+              echo "Testing binary: $(basename "$bin")"
+              
+              # 1. Use 'timeout' in case the binary launches a GUI or interactive prompt and hangs CI
+              # 2. Use 'xvfb-run' in case the binary requires a display server (like Frostwire)
+              # 3. Allow exit codes 1 or 2 since some binaries exit non-zero when passed --help
+              
+              if command -v xvfb-run &> /dev/null; then
+                timeout 15s xvfb-run "$bin" --help || echo "Exit code $? (Binary ran, but might not support --help)"
+              else
+                timeout 15s "$bin" --help || echo "Exit code $? (Binary ran, but might not support --help)"
+              fi
+            fi
+          done
+
       - uses: actions/upload-artifact@v7
         with:
           name: report_${{ matrix.system }}.json

@@ -171,6 +171,7 @@ jobs:
 
       - run: nu review/review.nu
         env:
+          NIXPKGS_ALLOW_UNFREE: "1"
           GITHUB_TOKEN: ${{ github.token }}
           INPUTS: ${{ toJSON(github.event.inputs) }}
           ATTIC_SERVER: ${{ vars.ATTIC_SERVER }}
